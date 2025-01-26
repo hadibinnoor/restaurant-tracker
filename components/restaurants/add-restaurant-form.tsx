@@ -221,6 +221,9 @@ export function AddRestaurantForm() {
                   latitude: e.target.value
                 }))}
                 required
+                inputMode="decimal"
+                type="number"
+                step="any"
               />
               <Input
                 placeholder="Longitude"
@@ -230,6 +233,9 @@ export function AddRestaurantForm() {
                   longitude: e.target.value
                 }))}
                 required
+                inputMode="decimal"
+                type="number"
+                step="any"
               />
             </div>
             <Button
@@ -248,7 +254,7 @@ export function AddRestaurantForm() {
               <TagInput
                 value={formData.recommendedDishes}
                 onChange={(tags) => setFormData(prev => ({ ...prev, recommendedDishes: tags }))}
-                placeholder="Type a dish name and press Enter"
+                placeholder="Type a dish name and press Enter or comma"
               />
             </div>
             {userDishes.length > 0 && (
@@ -278,7 +284,7 @@ export function AddRestaurantForm() {
               <TagInput
                 value={formData.tags}
                 onChange={(tags) => setFormData(prev => ({ ...prev, tags: tags }))}
-                placeholder="Type a tag and press Enter"
+                placeholder="Type a tag and press Enter or comma"
               />
             </div>
           </div>
