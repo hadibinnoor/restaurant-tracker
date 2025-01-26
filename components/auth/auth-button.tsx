@@ -37,10 +37,18 @@ export default function AuthButton() {
   }, [supabase, router])
 
   const handleSignIn = async () => {
+    const redirectURL = process.env.NEXT_PUBLIC_SITE_URL 
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+      : `${window.location.origin}/auth/callback`
+
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${location.origin}/auth/callback`
+        redirectTo: redirectURL,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
       }
     })
   }
@@ -51,32 +59,26 @@ export default function AuthButton() {
   }
 
   if (loading) {
-    return null
+    return <Button variant="ghost" size="sm" disabled>Loading...</Button>
   }
 
-  if (!user) {
+  if (user) {
     return (
-      <Button onClick={handleSignIn} variant="outline">
-        Sign In with Google
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="flex items-center gap-2">
+            <FaUser className="h-4 w-4" />
+            {user.email}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleSignOut}>
+            Sign Out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     )
   }
 
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="flex items-center gap-2">
-          <div className="bg-gray-100 grid size-7 place-items-center rounded-full">
-            <FaUser className="text-gray-600" />
-          </div>
-          <span className="hidden md:inline">{user.email}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleSignOut}>
-          Sign Out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+  return <Button onClick={handleSignIn}>Sign In with Google</Button>
 }

@@ -17,21 +17,24 @@ export async function GET(request: Request) {
       const { error } = await supabase.auth.exchangeCodeForSession(code)
       
       if (!error) {
-        return NextResponse.redirect(new URL(next, request.url))
+        // Get the site URL from environment variable or use the request origin
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin
+        const redirectUrl = new URL(next, siteUrl)
+        return NextResponse.redirect(redirectUrl)
       } else {
         console.error('Auth callback error:', error)
         return NextResponse.redirect(
-          new URL('/auth/auth-code-error', request.url)
+          new URL('/auth/auth-code-error', requestUrl.origin)
         )
       }
     }
 
     // Return the user to an error page with some instructions
-    return NextResponse.redirect(new URL('/auth/auth-code-error', request.url))
+    return NextResponse.redirect(new URL('/auth/auth-code-error', requestUrl.origin))
   } catch (error) {
     console.error('Auth callback error:', error)
     return NextResponse.redirect(
-      new URL('/auth/auth-code-error', request.url)
+      new URL('/auth/auth-code-error', requestUrl.origin)
     )
   }
 }
