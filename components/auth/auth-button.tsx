@@ -37,14 +37,11 @@ export default function AuthButton() {
   }, [supabase, router])
 
   const handleSignIn = async () => {
-    const redirectURL = process.env.NEXT_PUBLIC_SITE_URL 
-      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-      : `${window.location.origin}/auth/callback`
-
+    const { origin } = window.location
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectURL,
+        redirectTo: `${origin}/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
