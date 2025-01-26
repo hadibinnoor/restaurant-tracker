@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { MainNav } from "@/components/main-nav";
+import AuthButton from "@/components/auth/auth-button";
+import Link from "next/link";
 import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Supabase Auth + Next.js Demo",
+  title: "Theeeta",
+  description: "Track your favorite restaurants and dishes"
 };
 
 export default function RootLayout({
@@ -18,7 +20,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <MainNav />
+        <nav className="flex h-16 items-center justify-between border px-4">
+          <Link href="/" className="text-lg font-semibold">
+            Theeeta
+          </Link>
+          <AuthButton />
+        </nav>
         <main className="flex-1 p-10">{children}</main>
         <Toaster />
       </body>
