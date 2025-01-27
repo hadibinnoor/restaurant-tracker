@@ -11,9 +11,10 @@ import Image from 'next/image'
 
 interface RestaurantImageUploadProps {
   restaurantId: string
+  onUploadComplete: () => void
 }
 
-export function RestaurantImageUpload({ restaurantId }: RestaurantImageUploadProps) {
+export function RestaurantImageUpload({ restaurantId, onUploadComplete }: RestaurantImageUploadProps) {
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [loading, setLoading] = useState(false)
@@ -65,6 +66,7 @@ export function RestaurantImageUpload({ restaurantId }: RestaurantImageUploadPro
 
           setIsOpen(false)
           router.refresh()
+          onUploadComplete()
         } catch (error) {
           console.error('Error in upload process:', error)
           setError(error instanceof Error ? error.message : 'Failed to upload image')

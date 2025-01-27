@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Theeeta",
+  title: "theeta.in",
   description: "Track your favorite restaurants and dishes"
 };
 
@@ -22,7 +22,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <nav className="flex h-16 items-center justify-between border px-4">
           <Link href="/" className="text-lg font-semibold">
-            Theeeta
+            theeta.in
           </Link>
           <AuthButton />
         </nav>

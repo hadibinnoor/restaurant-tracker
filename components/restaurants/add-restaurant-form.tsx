@@ -1,64 +1,80 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { Button } from "@/components/ui/button"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useState, useEffect } from "react"
 import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useDropzone } from 'react-dropzone'
 import Image from 'next/image'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Loader2 } from "lucide-react"
 import { TagInput } from '../ui/tag-input'
 
-export function AddRestaurantForm() {
-  const router = useRouter()
-  const supabase = createClientComponentClient()
-  const [loading, setLoading] = useState(false)
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+const formSchema = z.object({
+  name: z.string().min(2, {
+    message: "Name must be at least 2 characters.",
+  }),
+  latitude: z.string().refine((val) => !isNaN(parseFloat(val)), {
+    message: "Latitude must be a valid number.",
+  }),
+  longitude: z.string().refine((val) => !isNaN(parseFloat(val)), {
+    message: "Longitude must be a valid number.",
+  }),
+  opening_time: z.string(),
+  closing_time: z.string(),
+  recommendedDishes: z.array(z.string()),
+  tags: z.array(z.string()),
+})
+
+interface AddRestaurantFormProps {
+  onSuccess?: () => void
+}
+
+export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [uploadedImages, setUploadedImages] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [userDishes, setUserDishes] = useState<string[]>([])
-  const [formData, setFormData] = useState({
-    name: '',
-    openingTime: '',
-    closingTime: '',
-    recommendedDishes: [] as string[],
-    tags: [] as string[],
-    latitude: '',
-    longitude: '',
+  const supabase = createClientComponentClient()
+  const router = useRouter()
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      latitude: "",
+      longitude: "",
+      opening_time: "09:00",
+      closing_time: "22:00",
+      recommendedDishes: [],
+      tags: [],
+    },
   })
-
-  // Fetch user's previously added dishes
-  useEffect(() => {
-    async function fetchUserDishes() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: restaurants } = await supabase
-          .from('restaurants')
-          .select('recommended_dishes')
-          .eq('user_id', user.id)
-
-        if (restaurants) {
-          const allDishes = restaurants.flatMap(r => r.recommended_dishes)
-          const uniqueDishes = Array.from(new Set(allDishes))
-          setUserDishes(uniqueDishes)
-        }
-      }
-    }
-    fetchUserDishes()
-  }, [supabase])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
     },
-    maxFiles: 1,
+    multiple: true,
     onDrop: async (acceptedFiles) => {
-      if (acceptedFiles.length > 0) {
-        setLoading(true)
-        setError(null)
-        try {
-          const file = acceptedFiles[0]
+      setIsLoading(true)
+      setError(null)
+      try {
+        const uploadedUrls: string[] = []
+        
+        for (const file of acceptedFiles) {
           const fileExt = file.name.split('.').pop()
           const fileName = `${Math.random()}.${fileExt}`
 
@@ -79,251 +95,340 @@ export function AddRestaurantForm() {
             .from('restaurant-images')
             .getPublicUrl(fileName)
 
-          setUploadedImage(urlData.publicUrl)
-        } catch (error) {
-          console.error('Error in upload process:', error)
-          setError(error instanceof Error ? error.message : 'Failed to upload image')
-          setUploadedImage(null)
-        } finally {
-          setLoading(false)
+          uploadedUrls.push(urlData.publicUrl)
         }
+
+        setUploadedImages(prev => [...prev, ...uploadedUrls])
+      } catch (error) {
+        console.error('Error in upload process:', error)
+        setError(error instanceof Error ? error.message : 'Failed to upload images')
+      } finally {
+        setIsLoading(false)
       }
     }
   })
 
-  const getCurrentLocation = () => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData(prev => ({
-            ...prev,
-            latitude: position.coords.latitude.toString(),
-            longitude: position.coords.longitude.toString()
-          }))
-        },
-        (error) => {
-          setError(`Error getting location: ${error.message}`)
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      )
-    } else {
-      setError('Geolocation is not supported by your browser')
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    try {
+  useEffect(() => {
+    async function fetchUserDishes() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('User not authenticated')
+      if (user) {
+        const { data: restaurants } = await supabase
+          .from('restaurants')
+          .select('recommended_dishes')
+          .eq('user_id', user.id)
+
+        if (restaurants) {
+          const allDishes = restaurants.flatMap(r => r.recommended_dishes)
+          const uniqueDishes = Array.from(new Set(allDishes))
+          setUserDishes(uniqueDishes)
+        }
+      }
+    }
+    fetchUserDishes()
+  }, [supabase])
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true)
+    try {
+      // Process tags and dishes to ensure they are stored as separate array elements
+      const processedTags = values.tags?.map(tag => tag.trim()).filter(Boolean) || []
+      const processedDishes = values.recommendedDishes?.map(dish => dish.trim()).filter(Boolean) || []
+
+      // First insert the restaurant
+      const { data: newRestaurant, error } = await supabase.from('restaurants').insert({
+        name: values.name,
+        latitude: parseFloat(values.latitude),
+        longitude: parseFloat(values.longitude),
+        opening_time: values.opening_time,
+        closing_time: values.closing_time,
+        tags: processedTags,
+        recommended_dishes: processedDishes,
+      }).select().single()
+
+      if (error) {
+        throw error
       }
 
-      const { error: insertError } = await supabase.from('restaurants').insert({
-        name: formData.name,
-        opening_time: formData.openingTime,
-        closing_time: formData.closingTime,
-        recommended_dishes: formData.recommendedDishes,
-        tags: formData.tags,
-        latitude: parseFloat(formData.latitude),
-        longitude: parseFloat(formData.longitude),
-        image_url: uploadedImage,
-        user_id: user.id
-      })
+      // Then insert images if any were uploaded
+      if (uploadedImages.length > 0) {
+        const { error: imagesError } = await supabase.from('restaurant_images').insert(
+          uploadedImages.map(url => ({
+            restaurant_id: newRestaurant.id,
+            image_url: url
+          }))
+        )
 
-      if (insertError) {
-        throw new Error(`Failed to add restaurant: ${insertError.message}`)
+        if (imagesError) {
+          throw imagesError
+        }
       }
 
-      router.refresh()
+      form.reset()
+      onSuccess?.()
       router.push('/')
     } catch (error) {
       console.error('Error adding restaurant:', error)
-      setError(error instanceof Error ? error.message : 'Failed to add restaurant')
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const addDishSuggestion = (dish: string) => {
-    if (!formData.recommendedDishes.includes(dish)) {
-      setFormData(prev => ({
-        ...prev,
-        recommendedDishes: [...prev.recommendedDishes, dish]
-      }))
+  const addExistingDish = (dish: string) => {
+    if (!form.getValues('recommendedDishes').includes(dish)) {
+      form.setValue('recommendedDishes', [...form.getValues('recommendedDishes'), dish])
     }
+  }
+
+  const handleTagInput = (value: string, field: { value: string[], onChange: (value: string[]) => void }) => {
+    // Split the input value by commas and newlines
+    const newTags = value.split(/[,\n]/).map(tag => tag.trim()).filter(Boolean)
+    
+    // Get current tags
+    const currentTags = field.value || []
+    
+    // Combine arrays and remove duplicates
+    const combinedArray = [...currentTags, ...newTags]
+    const uniqueTags = Array.from(new Set(combinedArray))
+    
+    // Update the field value
+    field.onChange(uniqueTags)
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl sm:text-3xl">Add New Restaurant</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
-              {error}
-            </div>
-          )}
+    <div className="w-full max-w-3xl mx-auto p-4 md:p-6">
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Add New Restaurant</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Fill in the details below to add a new restaurant to your collection.
+          </p>
+        </div>
 
-          <div>
-            <Label htmlFor="name" className="text-base">Restaurant Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              required
-              className="mt-1.5"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="openingTime" className="text-base">Opening Time</Label>
-              <Input
-                id="openingTime"
-                type="time"
-                value={formData.openingTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, openingTime: e.target.value }))}
-                required
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label htmlFor="closingTime" className="text-base">Closing Time</Label>
-              <Input
-                id="closingTime"
-                type="time"
-                value={formData.closingTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, closingTime: e.target.value }))}
-                required
-                className="mt-1.5"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-base">Location</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1.5">
-              <Input
-                placeholder="Latitude"
-                value={formData.latitude}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  latitude: e.target.value
-                }))}
-                required
-                inputMode="decimal"
-                type="number"
-                step="any"
-              />
-              <Input
-                placeholder="Longitude"
-                value={formData.longitude}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  longitude: e.target.value
-                }))}
-                required
-                inputMode="decimal"
-                type="number"
-                step="any"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={getCurrentLocation}
-              className="mt-2 w-full sm:w-auto"
-            >
-              Use Current Location
-            </Button>
-          </div>
-
-          <div>
-            <Label htmlFor="recommendedDishes" className="text-base">Recommended Dishes</Label>
-            <div className="mt-1.5">
-              <TagInput
-                value={formData.recommendedDishes}
-                onChange={(tags) => setFormData(prev => ({ ...prev, recommendedDishes: tags }))}
-                placeholder="Type a dish name and press Enter or comma"
-              />
-            </div>
-            {userDishes.length > 0 && (
-              <div className="mt-3">
-                <p className="text-sm text-gray-600 mb-2">Previously added dishes:</p>
-                <div className="flex flex-wrap gap-2">
-                  {userDishes.map((dish) => (
-                    <Button
-                      key={dish}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addDishSuggestion(dish)}
-                      className="text-xs"
-                    >
-                      + {dish}
-                    </Button>
-                  ))}
-                </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            {error && (
+              <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md text-sm">
+                {error}
               </div>
             )}
-          </div>
 
-          <div>
-            <Label htmlFor="tags" className="text-base">Tags</Label>
-            <div className="mt-1.5">
-              <TagInput
-                value={formData.tags}
-                onChange={(tags) => setFormData(prev => ({ ...prev, tags: tags }))}
-                placeholder="Type a tag and press Enter or comma"
-              />
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Restaurant Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter restaurant name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <h3 className="text-base font-medium">Location</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="latitude"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Latitude</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter latitude" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="longitude"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Longitude</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter longitude" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <h3 className="text-base font-medium">Operating Hours</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="opening_time"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Opening Time</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="closing_time"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Closing Time</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <Label className="text-base">Restaurant Image</Label>
-            <div
-              {...getRootProps()}
-              className={`mt-1.5 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                isDragActive ? 'border-primary bg-primary/5' : 'hover:border-gray-400'
-              }`}
-            >
-              <input {...getInputProps()} />
-              {loading && <p className="text-sm text-gray-600">Uploading image...</p>}
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              {uploadedImage ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-green-600">Image uploaded successfully!</p>
-                  <div className="relative w-full aspect-video sm:aspect-square max-w-md mx-auto">
-                    <Image
-                      src={uploadedImage}
-                      alt="Uploaded preview"
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                    />
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="recommendedDishes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Recommended Dishes</FormLabel>
+                    <FormControl>
+                      <TagInput
+                        value={field.value}
+                        onChange={(value) => handleTagInput(value, field)}
+                        placeholder="Type dishes separated by comma or Enter"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Add the restaurant's signature or most popular dishes
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {userDishes.length > 0 && (
+                <div className="bg-secondary/50 rounded-lg p-4">
+                  <p className="text-sm font-medium mb-2">Previously added dishes:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {userDishes.map((dish, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => addExistingDish(dish)}
+                        className="px-3 py-1 bg-background hover:bg-accent text-sm rounded-full transition-colors"
+                      >
+                        {dish}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ) : (
-                <p className="text-sm text-gray-600">Drag & drop an image here, or click to select one</p>
               )}
             </div>
-          </div>
 
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Adding Restaurant...' : 'Add Restaurant'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+            <FormField
+              control={form.control}
+              name="tags"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tags</FormLabel>
+                  <FormControl>
+                    <TagInput
+                      value={field.value}
+                      onChange={(value) => handleTagInput(value, field)}
+                      placeholder="Type tags separated by comma or Enter"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Add tags like cuisine type, price range, or ambiance
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-4">
+              <div>
+                <FormLabel className="text-base">Restaurant Images</FormLabel>
+                <FormDescription>
+                  Upload images of the restaurant, its ambiance, and food
+                </FormDescription>
+                <div
+                  {...getRootProps()}
+                  className={`mt-2 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                    isDragActive ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'
+                  }`}
+                >
+                  <input {...getInputProps()} />
+                  {isLoading && <p className="text-sm text-muted-foreground">Uploading images...</p>}
+                  {error && <p className="text-sm text-destructive">{error}</p>}
+                  {uploadedImages.length > 0 ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-green-600 dark:text-green-400">Images uploaded successfully!</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {uploadedImages.map((image, index) => (
+                          <div key={index} className="relative aspect-square">
+                            <Image
+                              src={image}
+                              alt="Uploaded preview"
+                              fill
+                              className="object-cover rounded-md"
+                              sizes="(max-width: 768px) 50vw, 33vw"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex justify-center">
+                        <svg
+                          className="mx-auto h-12 w-12 text-muted-foreground"
+                          stroke="currentColor"
+                          fill="none"
+                          viewBox="0 0 48 48"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                          />
+                        </svg>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <p>Drag & drop images here, or click to select</p>
+                        <p className="text-xs">Supported formats: JPG, PNG, GIF</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding Restaurant...
+                </>
+              ) : (
+                'Add Restaurant'
+              )}
+            </Button>
+          </form>
+        </Form>
+      </div>
+    </div>
   )
 }
