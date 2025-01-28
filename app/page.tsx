@@ -28,7 +28,7 @@ export default function Home() {
   const [isAddingRestaurant, setIsAddingRestaurant] = useState(false)
   const supabase = createClientComponentClient()
 
-  const fetchRestaurants = async () => {
+  const handleRestaurantAdded = async () => {
     const { data, error } = await supabase
       .from('restaurants')
       .select('*, restaurant_images(*)')
@@ -39,7 +39,6 @@ export default function Home() {
     }
 
     if (data) {
-      // Sort restaurants so ones with images appear first
       const sortedRestaurants = data.sort((a, b) => {
         const aHasImages = a.restaurant_images && a.restaurant_images.length > 0
         const bHasImages = b.restaurant_images && b.restaurant_images.length > 0
@@ -51,15 +50,56 @@ export default function Home() {
     }
   }
 
-  const fetchUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
-  }
-
   useEffect(() => {
+    const fetchRestaurants = async () => {
+      const { data, error } = await supabase
+        .from('restaurants')
+        .select('*, restaurant_images(*)')
+
+      if (error) {
+        console.error('Error fetching restaurants:', error)
+        return
+      }
+
+      if (data) {
+        // Sort restaurants so ones with images appear first
+        const sortedRestaurants = data.sort((a, b) => {
+          const aHasImages = a.restaurant_images && a.restaurant_images.length > 0
+          const bHasImages = b.restaurant_images && b.restaurant_images.length > 0
+          return bHasImages - aHasImages
+        })
+
+        setRestaurants(sortedRestaurants)
+        setFilteredRestaurants(sortedRestaurants)
+      }
+    }
+
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+
+    // Initial fetch
     fetchRestaurants()
     fetchUser()
-  }, [fetchRestaurants, fetchUser, supabase])
+
+    // Set up realtime subscription for restaurants
+    const restaurantsSubscription = supabase
+      .channel('restaurants')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'restaurants' 
+      }, () => {
+        handleRestaurantAdded()
+      })
+      .subscribe()
+
+    // Cleanup function
+    return () => {
+      restaurantsSubscription.unsubscribe()
+    }
+  }, [supabase]) // Only depend on supabase client
 
   // Update filtered restaurants whenever search term changes
   useEffect(() => {
@@ -126,15 +166,19 @@ export default function Home() {
                     <h2 className="text-xl font-semibold mb-2">{restaurant.name}</h2>
                     <div className="flex items-center text-gray-600 mb-2">
                       <MapPin className="h-4 w-4 mr-1" />
-                      <a
-                        href={`https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          window.open(
+                            `https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`,
+                            '_blank',
+                            'noopener,noreferrer'
+                          )
+                        }}
                         className="text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
                       >
                         View on Maps
-                      </a>
+                      </button>
                     </div>
                     {restaurant.tags && restaurant.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2">
@@ -159,7 +203,7 @@ export default function Home() {
       <AddRestaurantDialog
         open={isAddingRestaurant}
         onOpenChange={setIsAddingRestaurant}
-        onRestaurantAdded={fetchRestaurants}
+        onRestaurantAdded={handleRestaurantAdded}
       />
     </div>
   )

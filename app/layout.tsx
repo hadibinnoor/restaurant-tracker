@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import AuthButton from "@/components/auth/auth-button";
 import Link from "next/link";
+import Image from "next/image";
 import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -21,8 +22,15 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <nav className="flex h-16 items-center justify-between border px-4">
-          <Link href="/" className="text-lg font-semibold">
-            theeta.in
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/images/theet-logo.svg"
+              alt="Theeta Logo"
+              width={120}
+              height={40}
+              className="object-contain"
+              priority
+            />
           </Link>
           <AuthButton />
         </nav>

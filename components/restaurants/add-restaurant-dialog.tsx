@@ -1,6 +1,6 @@
 'use client'
 
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AddRestaurantForm } from "./add-restaurant-form"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -17,14 +17,25 @@ export function AddRestaurantDialog({
 }: AddRestaurantDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] p-0">
-        <ScrollArea className="h-full">
-          <AddRestaurantForm 
-            onSuccess={() => {
-              onRestaurantAdded()
-              onOpenChange(false)
-            }}
-          />
+      <DialogContent 
+        className="max-w-4xl h-[90vh]"
+        aria-describedby="add-restaurant-dialog-description"
+      >
+        <DialogHeader>
+          <DialogTitle>Add New Restaurant</DialogTitle>
+          <DialogDescription id="add-restaurant-dialog-description">
+            Fill in the restaurant details below. You can search for existing restaurants or add a new one manually.
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="h-[calc(90vh-8rem)] mt-4">
+          <div className="px-6">
+            <AddRestaurantForm 
+              onSuccess={() => {
+                onRestaurantAdded()
+                onOpenChange(false)
+              }}
+            />
+          </div>
         </ScrollArea>
       </DialogContent>
     </Dialog>

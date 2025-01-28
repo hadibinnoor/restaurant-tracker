@@ -28,40 +28,59 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
   const [isAddingDish, setIsAddingDish] = useState(false)
   const supabase = createClientComponentClient()
 
-  const fetchData = async () => {
-    console.log('Fetching data for restaurant ID:', id)
-    
-    const { data: restaurantData, error: restaurantError } = await supabase
-      .from('restaurants')
-      .select('*, restaurant_images(*)')
-      .eq('id', id)
-      .single()
+  useEffect(() => {
+    const fetchData = async () => {
+      console.log('Fetching data for restaurant ID:', id)
+      
+      const { data: restaurantData, error: restaurantError } = await supabase
+        .from('restaurants')
+        .select('*, restaurant_images(*)')
+        .eq('id', id)
+        .single()
 
-    console.log('Restaurant data:', restaurantData)
-    console.log('Restaurant error:', restaurantError)
+      console.log('Restaurant data:', restaurantData)
+      console.log('Restaurant error:', restaurantError)
 
-    if (!restaurantData) {
-      console.error('No restaurant data found')
-      notFound()
+      if (!restaurantData) {
+        console.error('No restaurant data found')
+        notFound()
+      }
+
+      const { data: { user: userData }, error: userError } = await supabase.auth.getUser()
+      console.log('User data:', userData)
+      console.log('User error:', userError)
+
+      // Sort restaurant images by created_at
+      const images = restaurantData.restaurant_images?.sort((a: any, b: any) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      ) || []
+
+      setRestaurant(restaurantData)
+      setUser(userData)
+      setSortedImages(images)
     }
 
-    const { data: { user: userData }, error: userError } = await supabase.auth.getUser()
-    console.log('User data:', userData)
-    console.log('User error:', userError)
+    // Set up realtime subscription
+    const restaurantSubscription = supabase
+      .channel(`restaurant-${id}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'restaurants',
+        filter: `id=eq.${id}`
+      }, () => {
+        fetchData()
+      })
+      .subscribe()
 
-    // Sort restaurant images by created_at
-    const images = restaurantData.restaurant_images?.sort((a: any, b: any) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    ) || []
-
-    setRestaurant(restaurantData)
-    setUser(userData)
-    setSortedImages(images)
-  }
-
-  useEffect(() => {
+    // Initial fetch
     fetchData()
-  }, [id, supabase, fetchData])
+
+    // Cleanup
+    return () => {
+      restaurantSubscription.unsubscribe()
+    }
+  }, [id, supabase]) // Only depend on id and supabase client
 
   if (!restaurant) return null
 
@@ -69,7 +88,6 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
 
   const handleAddTag = async (tag: string) => {
     console.log('Adding tag:', tag)
-    console.log('Current restaurant state:', restaurant)
     
     // Ensure we have an array, even if tags is null/undefined
     const currentTags = Array.isArray(restaurant.tags) ? restaurant.tags : []
@@ -80,7 +98,7 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
     console.log('New tags array:', newTags)
     
     try {
-      // First, update the restaurant
+      // Update the restaurant
       const { error: updateError } = await supabase
         .from('restaurants')
         .update({ 
@@ -93,41 +111,29 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
         return
       }
 
-      console.log('Update successful, fetching updated data...')
-
-      // Then fetch the updated restaurant data
-      const { data: updatedRestaurant, error: fetchError } = await supabase
-        .from('restaurants')
-        .select('*, restaurant_images(*)')
-        .eq('id', restaurant.id)
-        .single()
-
-      if (fetchError) {
-        console.error('Error fetching updated restaurant:', fetchError)
-        return
-      }
-
-      console.log('Updated restaurant data:', updatedRestaurant)
-      setRestaurant(updatedRestaurant)
+      // Update local state
+      setRestaurant(prev => ({
+        ...prev,
+        tags: newTags
+      }))
     } catch (error) {
-      console.error('Error adding tag:', error)
+      console.error('Error in handleAddTag:', error)
     }
   }
 
   const handleAddDish = async (dish: string) => {
     console.log('Adding dish:', dish)
-    console.log('Current restaurant state:', restaurant)
     
     // Ensure we have an array, even if recommended_dishes is null/undefined
-    const currentDishes = Array.isArray(restaurant.recommended_dishes) ? restaurant.recommended_dishes : []
-    console.log('Current dishes:', currentDishes)
+    const currentDishes = Array.isArray(restaurant.recommended_dishes) 
+      ? restaurant.recommended_dishes 
+      : []
     
     // Create new array with the new dish
     const newDishes = [...currentDishes, dish]
-    console.log('New dishes array:', newDishes)
     
     try {
-      // First, update the restaurant
+      // Update the restaurant
       const { error: updateError } = await supabase
         .from('restaurants')
         .update({ 
@@ -140,25 +146,23 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
         return
       }
 
-      console.log('Update successful, fetching updated data...')
-
-      // Then fetch the updated restaurant data
-      const { data: updatedRestaurant, error: fetchError } = await supabase
-        .from('restaurants')
-        .select('*, restaurant_images(*)')
-        .eq('id', restaurant.id)
-        .single()
-
-      if (fetchError) {
-        console.error('Error fetching updated restaurant:', fetchError)
-        return
-      }
-
-      console.log('Updated restaurant data:', updatedRestaurant)
-      setRestaurant(updatedRestaurant)
+      // Update local state
+      setRestaurant(prev => ({
+        ...prev,
+        recommended_dishes: newDishes
+      }))
     } catch (error) {
-      console.error('Error adding dish:', error)
+      console.error('Error in handleAddDish:', error)
     }
+  }
+
+  const handleImageUpload = (newImage: any) => {
+    setSortedImages(prev => {
+      const newImages = [...prev, newImage].sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      return newImages
+    })
   }
 
   return (
@@ -170,7 +174,10 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
           </Button>
         </Link>
         {user && (
-          <RestaurantImageUpload restaurantId={id} onUploadComplete={fetchData} />
+          <RestaurantImageUpload 
+            restaurantId={id} 
+            onUploadComplete={handleImageUpload} 
+          />
         )}
       </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./dialog"
 import { Button } from "./button"
 import { Input } from "./input"
 import { useState } from "react"
@@ -33,9 +33,15 @@ export function InputDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent 
+        className="sm:max-w-[425px]"
+        aria-describedby="input-dialog-description"
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription id="input-dialog-description">
+            Enter a value below and click Add to submit.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
