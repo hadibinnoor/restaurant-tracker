@@ -309,7 +309,7 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
                       />
                     </FormControl>
                     <FormDescription>
-                      Add the restaurant's signature or most popular dishes
+                      Add the restaurant&apos;s signature or most popular dishes
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

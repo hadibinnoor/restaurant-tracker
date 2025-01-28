@@ -28,16 +28,6 @@ export default function Home() {
   const [isAddingRestaurant, setIsAddingRestaurant] = useState(false)
   const supabase = createClientComponentClient()
 
-  useEffect(() => {
-    fetchRestaurants()
-    fetchUser()
-  }, [])
-
-  const fetchUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
-  }
-
   const fetchRestaurants = async () => {
     const { data, error } = await supabase
       .from('restaurants')
@@ -60,6 +50,16 @@ export default function Home() {
       setFilteredRestaurants(sortedRestaurants)
     }
   }
+
+  const fetchUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setUser(user)
+  }
+
+  useEffect(() => {
+    fetchRestaurants()
+    fetchUser()
+  }, [fetchRestaurants, fetchUser, supabase])
 
   // Update filtered restaurants whenever search term changes
   useEffect(() => {

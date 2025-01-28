@@ -61,7 +61,7 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
 
   useEffect(() => {
     fetchData()
-  }, [id, supabase])
+  }, [id, supabase, fetchData])
 
   if (!restaurant) return null
 

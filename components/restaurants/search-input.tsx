@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useDebounce } from '@/lib/hooks/use-debounce'
+import { useState, useEffect } from 'react';
 
 interface SearchInputProps {
   value: string
