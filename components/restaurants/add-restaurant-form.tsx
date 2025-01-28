@@ -118,45 +118,51 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
     },
-    maxFiles: 1,
+    multiple: true,
     onDrop: async (acceptedFiles) => {
       if (acceptedFiles.length > 0) {
         setIsLoading(true)
         try {
-          const file = acceptedFiles[0]
+          const uploadPromises = acceptedFiles.map(async (file) => {
+            // Compress each image
+            const options = {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1920,
+              useWebWorker: true
+            }
+            
+            const compressedFile = await imageCompression(file, options)
+            const fileExt = file.name.split('.').pop()
+            const fileName = `${Math.random()}.${fileExt}`
+
+            // Upload the compressed file to Supabase storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('restaurant-images')
+              .upload(fileName, compressedFile, {
+                cacheControl: '3600',
+                upsert: false
+              })
+
+            if (uploadError) {
+              throw uploadError
+            }
+
+            // Get the public URL
+            const { data: urlData } = supabase.storage
+              .from('restaurant-images')
+              .getPublicUrl(fileName)
+
+            return urlData.publicUrl
+          })
+
+          // Wait for all uploads to complete
+          const uploadedUrls = await Promise.all(uploadPromises)
           
-          // Compress the image
-          const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true
-          }
-          
-          const compressedFile = await imageCompression(file, options)
-          const fileExt = compressedFile.name.split('.').pop()
-          const fileName = `${Math.random()}.${fileExt}`
-
-          // Upload the compressed file to Supabase storage
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('restaurant-images')
-            .upload(fileName, compressedFile, {
-              cacheControl: '3600',
-              upsert: false
-            })
-
-          if (uploadError) {
-            throw uploadError
-          }
-
-          // Get the public URL
-          const { data: urlData } = supabase.storage
-            .from('restaurant-images')
-            .getPublicUrl(fileName)
-
-          setUploadedImages(prev => [...prev, urlData.publicUrl])
+          // Add all new URLs to the state
+          setUploadedImages(prev => [...prev, ...uploadedUrls])
         } catch (error) {
-          console.error('Error uploading image:', error)
-          setError(error instanceof Error ? error.message : 'Failed to upload image')
+          console.error('Error uploading images:', error)
+          setError(error instanceof Error ? error.message : 'Failed to upload images')
         } finally {
           setIsLoading(false)
         }

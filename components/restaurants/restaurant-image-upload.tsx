@@ -19,7 +19,7 @@ interface RestaurantImage {
 
 interface RestaurantImageUploadProps {
   restaurantId: string
-  onUploadComplete: (imageData: RestaurantImage) => void
+  onUploadComplete: (imageData: RestaurantImage[]) => void
 }
 
 export function RestaurantImageUpload({ restaurantId, onUploadComplete }: RestaurantImageUploadProps) {
@@ -33,62 +33,67 @@ export function RestaurantImageUpload({ restaurantId, onUploadComplete }: Restau
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
     },
-    maxFiles: 1,
+    multiple: true,
     onDrop: async (acceptedFiles) => {
       if (acceptedFiles.length > 0) {
         setLoading(true)
         setError(null)
         try {
-          const file = acceptedFiles[0]
-          
-          // Compress the image
-          const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true
-          }
-          
-          const compressedFile = await imageCompression(file, options)
-          const fileExt = compressedFile.name.split('.').pop()
-          const fileName = `${Math.random()}.${fileExt}`
+          const uploadPromises = acceptedFiles.map(async (file) => {
+            // Compress each image
+            const options = {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1920,
+              useWebWorker: true
+            }
+            
+            const compressedFile = await imageCompression(file, options)
+            const fileExt = file.name.split('.').pop()
+            const fileName = `${Math.random()}.${fileExt}`
 
-          // Upload the compressed file to Supabase storage
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('restaurant-images')
-            .upload(fileName, compressedFile, {
-              cacheControl: '3600',
-              upsert: false
-            })
+            // Upload the compressed file to Supabase storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('restaurant-images')
+              .upload(fileName, compressedFile, {
+                cacheControl: '3600',
+                upsert: false
+              })
 
-          if (uploadError) {
-            throw new Error(`Upload failed: ${uploadError.message}`)
-          }
+            if (uploadError) {
+              throw new Error(`Upload failed: ${uploadError.message}`)
+            }
 
-          // Get the public URL
-          const { data: urlData } = supabase.storage
-            .from('restaurant-images')
-            .getPublicUrl(fileName)
+            // Get the public URL
+            const { data: urlData } = supabase.storage
+              .from('restaurant-images')
+              .getPublicUrl(fileName)
 
-          // Store the image URL in restaurant_images table
-          const { data: imageData, error: insertError } = await supabase
-            .from('restaurant_images')
-            .insert({
-              restaurant_id: restaurantId,
-              image_url: urlData.publicUrl
-            })
-            .select()
-            .single()
+            // Store the image URL in restaurant_images table
+            const { data: imageData, error: insertError } = await supabase
+              .from('restaurant_images')
+              .insert({
+                restaurant_id: restaurantId,
+                image_url: urlData.publicUrl
+              })
+              .select()
+              .single()
 
-          if (insertError) {
-            throw new Error(`Failed to save image: ${insertError.message}`)
-          }
+            if (insertError) {
+              throw new Error(`Failed to save image: ${insertError.message}`)
+            }
+
+            return imageData
+          })
+
+          // Wait for all uploads to complete
+          const uploadedImages = await Promise.all(uploadPromises)
 
           setIsOpen(false)
           router.refresh()
-          onUploadComplete(imageData)
+          onUploadComplete(uploadedImages)
         } catch (error) {
           console.error('Error in upload process:', error)
-          setError(error instanceof Error ? error.message : 'Failed to upload image')
+          setError(error instanceof Error ? error.message : 'Failed to upload images')
         } finally {
           setLoading(false)
         }

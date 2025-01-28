@@ -181,9 +181,9 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
     }
   }
 
-  const handleImageUpload = (imageData: RestaurantImage) => {
+  const handleImageUpload = (imageDataArray: RestaurantImage[]) => {
     setSortedImages(prev => {
-      const newImages = [...prev, imageData].sort((a, b) =>
+      const newImages = [...prev, ...imageDataArray].sort((a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       )
       return newImages
