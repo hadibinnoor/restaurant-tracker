@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog'
 import { ImagePlus } from 'lucide-react'
 import Image from 'next/image'
+import imageCompression from 'browser-image-compression'
 
 interface RestaurantImage {
   id: string
@@ -39,13 +40,22 @@ export function RestaurantImageUpload({ restaurantId, onUploadComplete }: Restau
         setError(null)
         try {
           const file = acceptedFiles[0]
-          const fileExt = file.name.split('.').pop()
+          
+          // Compress the image
+          const options = {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true
+          }
+          
+          const compressedFile = await imageCompression(file, options)
+          const fileExt = compressedFile.name.split('.').pop()
           const fileName = `${Math.random()}.${fileExt}`
 
-          // Upload the file to Supabase storage
+          // Upload the compressed file to Supabase storage
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('restaurant-images')
-            .upload(fileName, file, {
+            .upload(fileName, compressedFile, {
               cacheControl: '3600',
               upsert: false
             })

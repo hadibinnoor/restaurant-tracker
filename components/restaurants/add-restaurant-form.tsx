@@ -23,6 +23,7 @@ import { Loader2 } from "lucide-react"
 import { TagInput } from '../ui/tag-input'
 import { useLoadScript } from "@react-google-maps/api";
 import Script from 'next/script';
+import imageCompression from 'browser-image-compression'
 
 const GOOGLE_MAPS_LIBRARIES: ("places" | "drawing" | "geometry" | "localContext" | "visualization")[] = ["places"];
 
@@ -117,27 +118,34 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
     },
-    multiple: true,
+    maxFiles: 1,
     onDrop: async (acceptedFiles) => {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const uploadedUrls: string[] = []
-        
-        for (const file of acceptedFiles) {
-          const fileExt = file.name.split('.').pop()
+      if (acceptedFiles.length > 0) {
+        setIsLoading(true)
+        try {
+          const file = acceptedFiles[0]
+          
+          // Compress the image
+          const options = {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true
+          }
+          
+          const compressedFile = await imageCompression(file, options)
+          const fileExt = compressedFile.name.split('.').pop()
           const fileName = `${Math.random()}.${fileExt}`
 
-          // Upload the file to Supabase storage
+          // Upload the compressed file to Supabase storage
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('restaurant-images')
-            .upload(fileName, file, {
+            .upload(fileName, compressedFile, {
               cacheControl: '3600',
               upsert: false
             })
 
           if (uploadError) {
-            throw new Error(`Upload failed: ${uploadError.message}`)
+            throw uploadError
           }
 
           // Get the public URL
@@ -145,15 +153,13 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
             .from('restaurant-images')
             .getPublicUrl(fileName)
 
-          uploadedUrls.push(urlData.publicUrl)
+          setUploadedImages(prev => [...prev, urlData.publicUrl])
+        } catch (error) {
+          console.error('Error uploading image:', error)
+          setError(error instanceof Error ? error.message : 'Failed to upload image')
+        } finally {
+          setIsLoading(false)
         }
-
-        setUploadedImages(prev => [...prev, ...uploadedUrls])
-      } catch (error) {
-        console.error('Error in upload process:', error)
-        setError(error instanceof Error ? error.message : 'Failed to upload images')
-      } finally {
-        setIsLoading(false)
       }
     }
   })
@@ -187,6 +193,12 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
     try {
+      // Get the current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError) throw userError
+      if (!user) throw new Error('No authenticated user found')
+
       // Process tags and dishes to ensure they are stored as separate array elements
       const processedTags = values.tags?.map(tag => tag.trim()).filter(Boolean) || []
       const processedDishes = values.recommendedDishes?.map(dish => dish.trim()).filter(Boolean) || []
@@ -200,6 +212,7 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
         closing_time: values.closing_time,
         tags: processedTags,
         recommended_dishes: processedDishes,
+        user_id: user.id,
       }).select().single()
 
       if (error) {
