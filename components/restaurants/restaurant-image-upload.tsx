@@ -9,9 +9,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ImagePlus } from 'lucide-react'
 import Image from 'next/image'
 
+interface RestaurantImage {
+  id: string
+  restaurant_id: string
+  image_url: string
+  created_at: string
+}
+
 interface RestaurantImageUploadProps {
   restaurantId: string
-  onUploadComplete: () => void
+  onUploadComplete: (imageData: RestaurantImage) => void
 }
 
 export function RestaurantImageUpload({ restaurantId, onUploadComplete }: RestaurantImageUploadProps) {
@@ -53,12 +60,14 @@ export function RestaurantImageUpload({ restaurantId, onUploadComplete }: Restau
             .getPublicUrl(fileName)
 
           // Store the image URL in restaurant_images table
-          const { error: insertError } = await supabase
+          const { data: imageData, error: insertError } = await supabase
             .from('restaurant_images')
             .insert({
               restaurant_id: restaurantId,
               image_url: urlData.publicUrl
             })
+            .select()
+            .single()
 
           if (insertError) {
             throw new Error(`Failed to save image: ${insertError.message}`)
@@ -66,7 +75,7 @@ export function RestaurantImageUpload({ restaurantId, onUploadComplete }: Restau
 
           setIsOpen(false)
           router.refresh()
-          onUploadComplete()
+          onUploadComplete(imageData)
         } catch (error) {
           console.error('Error in upload process:', error)
           setError(error instanceof Error ? error.message : 'Failed to upload image')

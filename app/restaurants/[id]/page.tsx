@@ -19,11 +19,30 @@ interface RestaurantPageProps {
   params: { id: string }
 }
 
+interface Restaurant {
+  id: string
+  name: string
+  latitude: number
+  longitude: number
+  opening_time: string
+  closing_time: string
+  tags: string[]
+  recommended_dishes: string[]
+  restaurant_images: RestaurantImage[]
+}
+
+interface RestaurantImage {
+  id: string
+  restaurant_id: string
+  image_url: string
+  created_at: string
+}
+
 export default function RestaurantPage({ params: { id } }: RestaurantPageProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(-1)
-  const [restaurant, setRestaurant] = useState<any>(null)
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
   const [user, setUser] = useState<any>(null)
-  const [sortedImages, setSortedImages] = useState<any[]>([])
+  const [sortedImages, setSortedImages] = useState<RestaurantImage[]>([])
   const [isAddingTag, setIsAddingTag] = useState(false)
   const [isAddingDish, setIsAddingDish] = useState(false)
   const supabase = createClientComponentClient()
@@ -112,10 +131,13 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
       }
 
       // Update local state
-      setRestaurant(prev => ({
-        ...prev,
-        tags: newTags
-      }))
+      setRestaurant((prev: Restaurant | null) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          tags: newTags
+        }
+      })
     } catch (error) {
       console.error('Error in handleAddTag:', error)
     }
@@ -147,18 +169,21 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
       }
 
       // Update local state
-      setRestaurant(prev => ({
-        ...prev,
-        recommended_dishes: newDishes
-      }))
+      setRestaurant((prev: Restaurant | null) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          recommended_dishes: newDishes
+        }
+      })
     } catch (error) {
       console.error('Error in handleAddDish:', error)
     }
   }
 
-  const handleImageUpload = (newImage: any) => {
+  const handleImageUpload = (imageData: RestaurantImage) => {
     setSortedImages(prev => {
-      const newImages = [...prev, newImage].sort((a, b) =>
+      const newImages = [...prev, imageData].sort((a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       )
       return newImages

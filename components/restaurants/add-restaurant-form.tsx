@@ -62,7 +62,8 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
   const router = useRouter()
 
   const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string,
+    // @ts-expect-error: type error
     libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
