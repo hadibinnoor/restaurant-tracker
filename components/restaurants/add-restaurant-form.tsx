@@ -241,7 +241,7 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
 
       form.reset()
       onSuccess?.(newRestaurant)
-      router.push('/')
+      router.push('/dashboard')
     } catch (error) {
       console.error('Error adding restaurant:', error)
     } finally {

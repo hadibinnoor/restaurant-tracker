@@ -45,6 +45,7 @@ export default function AuthButton() {
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
+          next: '/dashboard'
         }
       }
     })
