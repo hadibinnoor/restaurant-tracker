@@ -56,9 +56,24 @@ export default function DashboardClient({ initialUser }: { initialUser: any }) {
       return
     }
 
-    const filtered = restaurants.filter(restaurant =>
-      restaurant.name.toLowerCase().includes(term.toLowerCase())
-    )
+    const searchTermLower = term.toLowerCase().trim()
+    const filtered = restaurants.filter(restaurant => {
+      // Search in restaurant name
+      const nameMatch = restaurant.name.toLowerCase().includes(searchTermLower)
+      
+      // Search in tags
+      const tagsMatch = restaurant.tags?.some(tag => 
+        tag.toLowerCase().includes(searchTermLower)
+      ) || false
+      
+      // Search in recommended dishes
+      const dishesMatch = restaurant.recommended_dishes?.some(dish => 
+        dish.toLowerCase().includes(searchTermLower)
+      ) || false
+
+      return nameMatch || tagsMatch || dishesMatch
+    })
+    
     setFilteredRestaurants(filtered)
   }
 
@@ -69,7 +84,7 @@ export default function DashboardClient({ initialUser }: { initialUser: any }) {
           <SearchInput
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search restaurants..."
+            placeholder="Search by restaurant name, tags, or dishes..."
           />
         </div>
         <div className="flex gap-2 w-full md:w-auto">
@@ -115,14 +130,26 @@ export default function DashboardClient({ initialUser }: { initialUser: any }) {
               </div>
               <CardContent className="p-4">
                 <h3 className="text-lg font-semibold mb-2">{restaurant.name}</h3>
-                <div className="flex items-center text-gray-500">
+                <div className="flex items-center text-gray-500 mb-3">
                   <MapPin className="w-4 h-4 mr-1" />
                   <span className="text-sm">
                     {restaurant.latitude && restaurant.longitude
-                      ? 'Location available'
+                      ? 'View on Google Maps'
                       : 'No location set'}
                   </span>
                 </div>
+                {restaurant.tags && restaurant.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {restaurant.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </Link>

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { MapPin, Utensils } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { SearchInput } from '@/components/restaurants/search-input'
 
 interface UserProfilePageProps {
   params: { userid: string }
@@ -35,20 +36,17 @@ interface RestaurantImage {
 
 export default function UserProfilePage({ params: { userid } }: UserProfilePageProps) {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
+  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
   const [userName, setUserName] = useState<string>('')
   const supabase = createClientComponentClient()
 
   useEffect(() => {
     const fetchUserData = async () => {
-      // Fetch user profile
-      const { data: userData } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', userid)
-        .single()
-
-      if (userData) {
-        setUserName(userData.full_name)
+      // Get user data from auth
+      const { data: { user } } = await supabase.auth.getUser(userid)
+      if (user?.user_metadata?.name) {
+        setUserName(user.user_metadata.name)
       }
 
       // Fetch user's restaurants
@@ -63,20 +61,57 @@ export default function UserProfilePage({ params: { userid } }: UserProfilePageP
 
       if (restaurantsData) {
         setRestaurants(restaurantsData)
+        setFilteredRestaurants(restaurantsData)
       }
     }
 
     fetchUserData()
   }, [userid, supabase])
 
+  const handleSearch = (term: string) => {
+    setSearchTerm(term)
+    if (!term.trim()) {
+      setFilteredRestaurants(restaurants)
+      return
+    }
+
+    const searchTermLower = term.toLowerCase().trim()
+    const filtered = restaurants.filter(restaurant => {
+      // Search in restaurant name
+      const nameMatch = restaurant.name.toLowerCase().includes(searchTermLower)
+      
+      // Search in tags
+      const tagsMatch = restaurant.tags?.some(tag => 
+        tag.toLowerCase().includes(searchTermLower)
+      ) || false
+      
+      // Search in recommended dishes
+      const dishesMatch = restaurant.recommended_dishes?.some(dish => 
+        dish.toLowerCase().includes(searchTermLower)
+      ) || false
+
+      return nameMatch || tagsMatch || dishesMatch
+    })
+    
+    setFilteredRestaurants(filtered)
+  }
+
   return (
     <div className="container mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-8">
         {userName ? `${userName}'s Restaurants` : 'Restaurants'}
       </h1>
+
+      <div className="mb-8 max-w-2xl">
+        <SearchInput
+          value={searchTerm}
+          onChange={(e) => handleSearch(e.target.value)}
+          placeholder="Search by restaurant name, tags, or dishes..."
+        />
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {restaurants.map((restaurant) => (
+        {filteredRestaurants.map((restaurant) => (
           <Link href={`/restaurants/${restaurant.id}`} key={restaurant.id}>
             <Card className="hover:shadow-lg transition-shadow">
               <CardContent className="p-4">
@@ -134,7 +169,7 @@ export default function UserProfilePage({ params: { userid } }: UserProfilePageP
         ))}
       </div>
       
-      {restaurants.length === 0 && (
+      {filteredRestaurants.length === 0 && (
         <div className="text-center text-gray-500 mt-8">
           No restaurants found
         </div>
