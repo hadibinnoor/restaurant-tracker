@@ -29,6 +29,7 @@ interface Restaurant {
   tags: string[]
   recommended_dishes: string[]
   restaurant_images: RestaurantImage[]
+  user_id: string
 }
 
 interface RestaurantImage {
@@ -45,6 +46,7 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
   const [sortedImages, setSortedImages] = useState<RestaurantImage[]>([])
   const [isAddingTag, setIsAddingTag] = useState(false)
   const [isAddingDish, setIsAddingDish] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
   const supabase = createClientComponentClient()
 
   useEffect(() => {
@@ -68,6 +70,9 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
       const { data: { user: userData }, error: userError } = await supabase.auth.getUser()
       console.log('User data:', userData)
       console.log('User error:', userError)
+
+      // Check if the current user is the owner of the restaurant
+      setIsOwner(userData?.id === restaurantData.user_id)
 
       // Sort restaurant images by created_at
       const images = restaurantData.restaurant_images?.sort((a: any, b: any) =>
@@ -193,12 +198,12 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <Link href="/">
-          <Button variant="outline" className="w-full sm:w-auto">
+        <Link href={user ? "/dashboard" : `/${restaurant.user_id}`}>
+          <Button variant="ghost" className="hover:bg-transparent hover:text-primary">
             ← Back to Restaurants
           </Button>
         </Link>
-        {user && (
+        {isOwner && (
           <RestaurantImageUpload 
             restaurantId={id} 
             onUploadComplete={handleImageUpload} 
@@ -254,7 +259,7 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h2 className="text-lg sm:text-xl font-semibold">Tags</h2>
-                    {user && (
+                    {isOwner && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -280,7 +285,7 @@ export default function RestaurantPage({ params: { id } }: RestaurantPageProps) 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h2 className="text-lg sm:text-xl font-semibold">Recommended Dishes</h2>
-                    {user && (
+                    {isOwner && (
                       <Button 
                         variant="ghost" 
                         size="sm" 

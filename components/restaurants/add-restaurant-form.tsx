@@ -45,7 +45,7 @@ const formSchema = z.object({
 })
 
 interface AddRestaurantFormProps {
-  onSuccess?: () => void
+  onSuccess?: (restaurant: any) => void
 }
 
 export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
@@ -240,7 +240,7 @@ export function AddRestaurantForm({ onSuccess }: AddRestaurantFormProps) {
       }
 
       form.reset()
-      onSuccess?.()
+      onSuccess?.(newRestaurant)
       router.push('/')
     } catch (error) {
       console.error('Error adding restaurant:', error)

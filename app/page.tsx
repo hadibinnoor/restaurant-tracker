@@ -1,210 +1,92 @@
-'use client'
-
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/components/restaurants/search-input'
-import { AddRestaurantDialog } from '@/components/restaurants/add-restaurant-dialog'
 import Link from 'next/link'
-import Image from 'next/image'
-import { Card, CardContent } from '@/components/ui/card'
-import { MapPin, Plus } from 'lucide-react'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { Database } from '@/types/supabase'
+import { Heart, Map, Utensils } from 'lucide-react'
+import AnimatedHero from './components/animated-hero'
 
-interface Restaurant {
-  id: string
-  name: string
-  latitude: number
-  longitude: number
-  tags: string[]
-  recommended_dishes: string[]
-  restaurant_images: { image_url: string }[]
-}
-
-export default function Home() {
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([])
-  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [user, setUser] = useState<any>(null)
-  const [isAddingRestaurant, setIsAddingRestaurant] = useState(false)
-  const supabase = createClientComponentClient()
-
-  const handleRestaurantAdded = async () => {
-    const { data, error } = await supabase
-      .from('restaurants')
-      .select('*, restaurant_images(*)')
-
-    if (error) {
-      console.error('Error fetching restaurants:', error)
-      return
-    }
-
-    if (data) {
-      const sortedRestaurants = data.sort((a, b) => {
-        const aHasImages = a.restaurant_images && a.restaurant_images.length > 0
-        const bHasImages = b.restaurant_images && b.restaurant_images.length > 0
-        return bHasImages - aHasImages
-      })
-
-      setRestaurants(sortedRestaurants)
-      setFilteredRestaurants(sortedRestaurants)
-    }
-  }
-
-  useEffect(() => {
-    const fetchRestaurants = async () => {
-      const { data, error } = await supabase
-        .from('restaurants')
-        .select('*, restaurant_images(*)')
-
-      if (error) {
-        console.error('Error fetching restaurants:', error)
-        return
-      }
-
-      if (data) {
-        // Sort restaurants so ones with images appear first
-        const sortedRestaurants = data.sort((a, b) => {
-          const aHasImages = a.restaurant_images && a.restaurant_images.length > 0
-          const bHasImages = b.restaurant_images && b.restaurant_images.length > 0
-          return bHasImages - aHasImages
-        })
-
-        setRestaurants(sortedRestaurants)
-        setFilteredRestaurants(sortedRestaurants)
-      }
-    }
-
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-    }
-
-    // Initial fetch
-    fetchRestaurants()
-    fetchUser()
-
-    // Set up realtime subscription for restaurants
-    const restaurantsSubscription = supabase
-      .channel('restaurants')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'restaurants' 
-      }, () => {
-        handleRestaurantAdded()
-      })
-      .subscribe()
-
-    // Cleanup function
-    return () => {
-      restaurantsSubscription.unsubscribe()
-    }
-  }, [supabase]) // Only depend on supabase client
-
-  // Update filtered restaurants whenever search term changes
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredRestaurants(restaurants)
-      return
-    }
-
-    const searchTermLower = searchTerm.toLowerCase()
-    const filtered = restaurants.filter(restaurant => {
-      // Search in name
-      const nameMatch = restaurant.name.toLowerCase().includes(searchTermLower)
-      
-      // Search in tags
-      const tagsMatch = restaurant.tags?.some(tag => 
-        tag.toLowerCase().includes(searchTermLower)
-      ) || false
-      
-      // Search in recommended dishes
-      const dishesMatch = restaurant.recommended_dishes?.some(dish => 
-        dish.toLowerCase().includes(searchTermLower)
-      ) || false
-
-      return nameMatch || tagsMatch || dishesMatch
-    })
-
-    setFilteredRestaurants(filtered)
-  }, [searchTerm, restaurants])
+export default async function Home() {
+  const supabase = createServerComponentClient<Database>({ cookies })
+  const { data: { user } } = await supabase.auth.getUser()
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div className="flex-1 w-full sm:max-w-sm">
-          <SearchInput
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+    <div className="min-h-screen bg-white text-black w-full">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden w-full">
+        <div className="absolute inset-0 bg-[url('/hero-pattern.svg')] opacity-5"></div>
+        
+        {/* Animated Food Vectors */}
+        <AnimatedHero />
+
+        <div className="w-full px-4 pt-32 pb-20 md:pt-40 md:pb-32">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-500 animate-scale-in">
+              Your Personal Restaurant Journey Starts Here
+            </h1>
+            <p className="text-lg md:text-xl text-zinc-600 mb-8 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+              Track, discover, and share your favorite dining spots. Create your own curated collection of must-visit restaurants.
+            </p>
+            <div className="flex items-center justify-center gap-4 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+              {!user ? (
+                <Link
+                  href="/auth"
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black px-8 py-4 rounded-lg font-medium transition-all transform hover:scale-105 relative overflow-hidden group"
+                >
+                  <span className="relative z-10">Get Started</span>
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 animate-shimmer"></div>
+                </Link>
+              ) : (
+                <Link
+                  href="/dashboard"
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black px-8 py-4 rounded-lg font-medium transition-all transform hover:scale-105 relative overflow-hidden group"
+                >
+                  <span className="relative z-10">Go to Dashboard</span>
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 animate-shimmer"></div>
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
-        {user && (
-          <Button onClick={() => setIsAddingRestaurant(true)} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" /> Add Restaurant
-          </Button>
-        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredRestaurants.map((restaurant) => {
-          const mainImage = restaurant.restaurant_images?.[0]?.image_url || '/placeholder-restaurant.jpg'
-          
-          return (
-            <Link key={restaurant.id} href={`/restaurants/${restaurant.id}`}>
-              <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardContent className="p-0">
-                  <div className="relative aspect-video">
-                    <Image
-                      src={mainImage}
-                      alt={restaurant.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h2 className="text-xl font-semibold mb-2">{restaurant.name}</h2>
-                    <div className="flex items-center text-gray-600 mb-2">
-                      <MapPin className="h-4 w-4 mr-1" />
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault()
-                          window.open(
-                            `https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`,
-                            '_blank',
-                            'noopener,noreferrer'
-                          )
-                        }}
-                        className="text-primary hover:underline"
-                      >
-                        View on Maps
-                      </button>
-                    </div>
-                    {restaurant.tags && restaurant.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {restaurant.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 bg-secondary text-secondary-foreground rounded-md text-sm"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          )
-        })}
-      </div>
+      {/* Features Section */}
+      <div id="features" className="w-full px-4 py-20 bg-gray-50">
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-500">
+          Everything You Need to Track Your Food Adventures
+        </h2>
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Feature Cards */}
+          <div className="bg-white shadow-lg rounded-xl p-6 hover:border-yellow-500/50 transition-all border border-gray-100">
+            <div className="bg-yellow-400/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+              <Map className="w-6 h-6 text-yellow-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-black">Track Locations</h3>
+            <p className="text-zinc-600">
+              Save and organize your favorite restaurants with detailed information and personal notes.
+            </p>
+          </div>
 
-      <AddRestaurantDialog
-        open={isAddingRestaurant}
-        onOpenChange={setIsAddingRestaurant}
-        onRestaurantAdded={handleRestaurantAdded}
-      />
+          <div className="bg-white shadow-lg rounded-xl p-6 hover:border-yellow-500/50 transition-all border border-gray-100">
+            <div className="bg-yellow-400/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+              <Heart className="w-6 h-6 text-yellow-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-black">Personal Collections</h3>
+            <p className="text-zinc-600">
+              Create your own curated lists of favorite restaurants and must-try dishes.
+            </p>
+          </div>
+
+          <div className="bg-white shadow-lg rounded-xl p-6 hover:border-yellow-500/50 transition-all border border-gray-100">
+            <div className="bg-yellow-400/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+              <Utensils className="w-6 h-6 text-yellow-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-black">Dish Recommendations</h3>
+            <p className="text-zinc-600">
+              Keep track of must-try dishes and share recommendations with friends.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

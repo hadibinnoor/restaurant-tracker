@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 interface AddRestaurantDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onRestaurantAdded: () => void
+  onRestaurantAdded: (restaurant: any) => void
 }
 
 export function AddRestaurantDialog({
@@ -30,8 +30,8 @@ export function AddRestaurantDialog({
         <ScrollArea className="h-[calc(90vh-8rem)] mt-4">
           <div className="px-6">
             <AddRestaurantForm 
-              onSuccess={() => {
-                onRestaurantAdded()
+              onSuccess={(restaurant) => {
+                onRestaurantAdded(restaurant)
                 onOpenChange(false)
               }}
             />

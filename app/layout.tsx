@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import AuthButton from "@/components/auth/auth-button";
-import Link from "next/link";
-import Image from "next/image";
 import { Toaster } from "@/components/ui/toaster";
+import ClientLayout from './client-layout'
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -15,28 +13,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <nav className="flex h-16 items-center justify-between border px-4">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/images/theet-logo.svg"
-              alt="Theeta Logo"
-              width={120}
-              height={40}
-              className="object-contain"
-              priority
-            />
-          </Link>
-          <AuthButton />
-        </nav>
-        <main className="flex-1 p-10">{children}</main>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} min-h-screen`}>
+        <ClientLayout>{children}</ClientLayout>
         <Toaster />
       </body>
     </html>
-  );
+  )
 }
