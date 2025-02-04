@@ -29,7 +29,7 @@ export default async function Home() {
             <div className="flex items-center justify-center gap-4 animate-fade-in" style={{ animationDelay: '0.4s' }}>
               {!user ? (
                 <Link
-                  href="/auth"
+                  href="/signin"
                   className="bg-yellow-400 hover:bg-yellow-500 text-black px-8 py-4 rounded-lg font-medium transition-all transform hover:scale-105 relative overflow-hidden group"
                 >
                   <span className="relative z-10">Get Started</span>
